@@ -1,0 +1,7 @@
+The FairClean implementation is organised as followed;
+-Adult-income1.ipynb
+-Adult-income2.ipynb
+-FairCleanAdultModel1.ipynb
+-FairCleanAdultModel2.ipynb
+-FairCleanGradModel1.ipynb
+-FairCleanGradModel2.ipynb
