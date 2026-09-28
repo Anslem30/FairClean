@@ -1,117 +1,192 @@
-FairClean Workflow: From Baseline Training to Final Fairness Evaluation
+# FairClean — Fairness-Aware Data Cleaning for Machine Learning
 
-FairClean consists of a structured pipeline that performs fairness diagnostics, applies targeted data‑level mitigation, and outputs a fairness‑aware cleaned dataset for downstream model training. The workflow is summarised below.
+**Python · Pandas · NumPy · scikit-learn · Data Cleaning · Algorithmic Fairness · Responsible AI**
 
-1. Load and Preprocess the Dataset
+> **Portfolio highlight:** In the reported Adult Income Logistic Regression experiment, the demographic-parity gap decreased from **0.3308 to 0.2427** — approximately **26.6%**. Other experiments did not show the same improvement, highlighting that fairness interventions need to be evaluated rather than assumed to generalise.
 
--Import the raw dataset
+FairClean is the framework I developed for my **BSc (Hons) Computer Science Honours project at Edinburgh Napier University**. It investigates whether fairness considerations can be introduced during data preparation, before patterns in training data become embedded in downstream machine-learning models.
 
--handle missing values, enecode categorical variable and normalise/scale numerical features
+The project combines fairness diagnostics, targeted data-level mitigation and transparent intervention logging. The repository preserves my original research notebooks and also contains a later portfolio refactor that extracts reusable Python components and tests.
 
--Split into training and test sets
+**Project website:** https://www.fairclean.solutions/
 
-2. Train the Baseline Model
+## The problem
 
--Fit the baseline classifier
+Traditional data cleaning focuses on missing values, inconsistent labels, duplicates and other technical data-quality problems. Those steps improve dataset quality, but they do not necessarily address discriminatory patterns already present in the data.
 
--Generate baseline predictions on the test set
+FairClean investigates:
 
-3. Compute Baseline Fairness Metrics
-Evaluate the baseline model using the three fairness metrics.
+> Can counterfactual reasoning be used not only to diagnose model sensitivity, but also to guide targeted data-cleaning interventions?
 
--Demogrpahic Parity Ratio(DPR)
+## How FairClean works
 
--Demogrpahic Parity Difference(DPD)
+```text
+Dataset
+  ↓
+Preprocessing and validation
+  ↓
+Baseline model
+  ↓
+┌─────────────────────────────────────┐
+│ FairClean diagnostics               │
+│ 1. Sensitive-attribute flip         │
+│ 2. Prototype causal check*          │
+│ 3. Structural uplift                │
+└─────────────────────────────────────┘
+  ↓
+Hybrid mitigation
+  ├─ Direct / prototype-causal flag → remove
+  └─ Structural instability → reweight
+  ↓
+Retrain the same model
+  ↓
+Post-cleaning fairness evaluation
+  ↓
+Transparency log
+```
 
--Conterfactual Sensitivity Rate(CSR)
+***Implementation note:** The submitted research design distinguishes a causal-counterfactual test from the direct attribute-flip test. In the submitted notebooks currently in this repository, however, the implemented causal helper mirrors the direct sensitive-attribute flip rather than independently adjusting downstream causal features. The refactored package preserves and documents that behaviour rather than presenting it as a separate causal model.
 
-These serve as the reference point for assessing fairness improvements.
+## Experimental design
 
-4. Run FairCLean Diagnostic Tests
+FairClean was evaluated across two employment-related datasets and two classifiers:
 
-Apply the three diagnostic components to identify unfair or unstable samples(rows):
+| Dataset | Decision Tree | Logistic Regression |
+|---|:---:|:---:|
+| Adult Income | ✓ | ✓ |
+| International Graduates | ✓ | ✓ |
 
-Attribute Flip Test
+The workflow compares fairness measurements before and after mitigation and records the rows removed or reweighted.
 
-Checks whether the model’s prediction changes when the sensitive attribute (e.g., gender) is flipped while all other features remain fixed.
+## Reported results
 
-Causal Counterfactual Test
+| Dataset / model | DP gap before | DP gap after | Rows removed | Rows reweighted | Result |
+|---|---:|---:|---:|---:|---|
+| Adult Income — Logistic Regression | 0.3308 | **0.2427** | 6,087 | 27,586 | Gap reduced |
+| Adult Income — Decision Tree | 0.1949 | 0.1969 | 706 | 36,564 | No improvement |
+| International Graduates — Logistic Regression | 0.00045 | 0.00045 | 0 | 150,179 | Unchanged |
+| International Graduates — Decision Tree | 0.00042 | 0.00042 | 0 | 150,184 | Unchanged |
 
-Generates a causally consistent counterfactual for each row by flipping the sensitive attribute and adjusting any causally linked features, then checks whether the model’s prediction changes.
+The Adult Logistic Regression result corresponds to an approximately **26.6% reduction in demographic-parity gap**. Importantly, the Decision Tree result did not improve on the same measure. FairClean is therefore presented as an experimental framework whose effects are **model- and dataset-dependent**, not as a method guaranteed to improve fairness.
 
-Structural Uplift Test
+The machine-readable results summary is available in `results/metrics/fairclean_results_summary.csv`.
 
-Constructs an improved version of each row by setting key socio‑economic or qualification‑related features to their best‑case values, then checks whether the model’s prediction behaves as expected.
+## Original FairClean workflow
 
-Each diagnostic outputs a binary flag per row indicating whether a fairness or stability violation occurred.
+### 1. Load and preprocess the dataset
+- Import the dataset.
+- Handle missing values.
+- Encode categorical variables and normalise or scale numerical features.
+- Split the data into training and test sets.
 
-5. Classify Rows Based on Diagnostic Outcomes
+### 2. Train the baseline model
+- Fit the baseline classifier.
+- Generate baseline predictions on the test set.
 
-Each row is assigned to one of three categories:
+### 3. Compute baseline fairness metrics
+The original experiments evaluate measures including:
+- Demographic Parity Ratio (DPR)
+- Demographic Parity Difference / gap (DPD)
+- Counterfactual sensitivity diagnostics
 
--Directly Unfair — fails the Attribute Flip Test
+These provide the reference point for post-cleaning evaluation.
 
--Causally Unfair — fails the Causal Counterfactual Test
+### 4. Run FairClean diagnostics
 
--Structurally Unstable — fails the Structural Uplift Test
+**Sensitive-attribute flip**  
+Flip the sensitive attribute while keeping the remaining features fixed and identify predictions that change.
 
-This classification determines the mitigation applied to each row
+**Prototype causal check**  
+Retained to reproduce the submitted implementation. See the implementation note above.
 
-6. Apply Hybrid Mitigation Strategy
+**Structural uplift**  
+Move selected socioeconomic or qualification-related features toward favourable values and identify predictions that change.
 
-FairClean applies a hybrid data‑level mitigation approach:
+### 5. Classify diagnostic outcomes
+Rows are flagged according to direct/prototype-causal sensitivity and structural instability.
 
--Remove rows flagged as directly unfair
+### 6. Apply hybrid mitigation
+- Remove rows flagged by the direct/prototype-causal diagnostics.
+- Reweight retained rows flagged as structurally unstable.
+- Record the intervention in a transparency log.
 
--Remove rows flagged as causally unfair
+### 7. Retrain the model
+Retrain the same classifier using the cleaned dataset and sample weights.
 
--Reweight rows flagged as structurally unstable
+### 8. Re-evaluate fairness
+Recompute the relevant fairness measurements on the retrained model.
 
-This produces the cleaned and reweighted training dataset.
+### 9. Generate the transparency log
+Record diagnostic flags, removals and reweighting so interventions can be inspected.
 
-7. Retrain the Model on the Cleaned Dataset
+### 10. Produce the final research outputs
+The experiments produce before/after fairness measurements, intervention counts and the cleaned/reweighted training data used for retraining.
 
--Retrain the same model using the cleaned dataset and sample weights.
+## Repository structure
 
--Generate new predictions on the test set.
+```text
+FairClean/
+├── Adult-income1.ipynb              # Original Adult preprocessing
+├── Adult-income2.ipynb              # Original Adult preprocessing/analysis
+├── FairCleanAdultModel1.ipynb       # Original Adult Decision Tree experiment
+├── FairCleanAdultModel2.ipynb       # Original Adult Logistic Regression experiment
+├── FairCleanGradModel1.ipynb        # Original Graduates Decision Tree experiment
+├── FairCleanGradModel2.ipynb        # Original Graduates Logistic Regression experiment
+├── adult-income-preprocessed.csv    # Processed Adult data used in the project
+├── src/
+│   └── fairclean/                    # Reusable portfolio refactor
+├── tests/                            # Unit tests for reusable components
+├── results/
+│   └── metrics/                      # Reported experiment summary
+├── data/
+│   └── README.md                     # Dataset attribution/licensing notes
+├── docs/
+│   ├── methodology.md
+│   └── refactor_notes.md
+├── pyproject.toml
+├── requirements.txt
+└── CITATION.cff
+```
 
-8. Compute Post‑Cleaning Fairness Metrics
-Recompute:
+## Running the reusable package
 
--DPR
+Clone the repository, create a Python environment, then install the project in editable mode:
 
--DPD
+```bash
+pip install -e .[dev]
+pytest -q
+```
 
--CSR
+The original notebooks are retained as the academic research record. Some were developed using Google Drive/Colab paths, so they are not presented as the canonical package interface. The reusable components under `src/fairclean/` are the cleaner entry point for inspecting the later refactor.
 
-These values quantify the fairness improvements introduced by FairClean.
+## Data attribution
 
-9. Generate Transparency Log
+The Adult Income data used in the project originates from the **UCI Machine Learning Repository**. Attribution and licensing notes are documented in `data/README.md`.
 
-Produce a structured log containing:
+The International Graduates dataset used in the research is **not redistributed here** because its original distribution licence has not yet been verified confidently enough for public redistribution.
 
--number of rows removed
+## Limitations
 
--number of rows reweighted
+FairClean is an **academic research prototype**, not a production fairness, hiring, visa, lending or compliance system.
 
--baseline fairness metrics
+Key limitations include:
 
--post‑cleaning fairness metrics
+- fairness depends on context and cannot be established by demographic parity alone;
+- structural-uplift rules are dataset-specific;
+- the submitted causal helper does not independently implement the full causal-counterfactual mechanism described in the research design;
+- the reported mitigation effects differ across models and datasets;
+- the later reusable-code refactor should be distinguished from the original submitted experiment notebooks.
 
--mitigation summary
+See `docs/refactor_notes.md` for the implementation details identified during portfolio refactoring.
 
-This ensures full transparency and reproducibility of the FairClean process.
+## Technologies
 
-10. Final Output
+**Python · Pandas · NumPy · scikit-learn · Jupyter Notebook · Machine Learning · Data Cleaning · Model Evaluation · Algorithmic Fairness · Responsible AI**
 
-The pipeline outputs:
+## Author
 
--baseline fairness metrics
+**Uyi Anslem Ezama**  
+First-Class BSc (Hons) Computer Science  
+Edinburgh Napier University
 
--post‑cleaning fairness metrics
-
--cleaned + reweighted dataset
-
--transparency log
-
-This completes the full FairClean workflow from raw data to fairness‑aware evaluation.
+[LinkedIn](https://www.linkedin.com/in/uyi-ezama-b883a0331/) · [GitHub](https://github.com/Anslem30) · [FairClean website](https://www.fairclean.solutions/)
