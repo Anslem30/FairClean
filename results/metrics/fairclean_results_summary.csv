@@ -1,0 +1,5 @@
+dataset,model,dp_gap_before,dp_gap_after,dp_ratio_before,dp_ratio_after,direct_unstable_rows,structural_unstable_rows,rows_removed,rows_reweighted,outcome
+Adult Income,Logistic Regression,0.3308,0.2427,0.2884,0.367,6087,31494,6087,27586,Fairness improved
+Adult Income,Decision Tree,0.1949,0.1969,0.3605,0.3547,706,37107,706,36564,No improvement
+International Graduates,Logistic Regression,0.00045,0.00045,0.99935,0.99935,0,150179,0,150179,Fairness unchanged
+International Graduates,Decision Tree,0.00042,0.00042,0.99939,0.99939,0,150184,0,150184,Fairness unchanged
